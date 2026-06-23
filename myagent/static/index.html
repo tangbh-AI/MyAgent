@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyAgent — Abaqus 自然语言智能助手</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- 顶部栏 -->
+<header class="header">
+  <div class="header-left">
+    <h1>🤖 MyAgent</h1>
+    <span class="header-subtitle">Abaqus 自然语言智能助手</span>
+  </div>
+  <div class="header-right">
+    <select id="model-select" class="model-select">
+      <option value="">加载中...</option>
+    </select>
+  </div>
+</header>
+
+<!-- 主体：左右分栏 -->
+<main class="main-container">
+
+  <!-- 左侧：对话区 -->
+  <section class="chat-panel">
+    <div class="chat-messages" id="chat-messages">
+      <div class="message bot">
+        <div class="message-avatar">🤖</div>
+        <div class="message-bubble">
+          <p>你好！我是 MyAgent，请用中文描述你的仿真需求。</p>
+          <p class="message-hint">例如："分析一个悬臂梁，长1m，截面50x100mm，钢材料，自由端受1000N的力"</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-input-area">
+      <textarea
+        id="chat-input"
+        class="chat-input"
+        placeholder="描述你的仿真需求..."
+        rows="3"
+      ></textarea>
+      <button id="send-btn" class="send-btn" onclick="sendMessage()">
+        发送
+      </button>
+    </div>
+  </section>
+
+  <!-- 右侧：任务列表 -->
+  <aside class="task-panel">
+    <div class="task-panel-header">
+      <h2>📊 任务列表</h2>
+      <button class="refresh-btn" onclick="refreshTasks()">🔄 刷新</button>
+    </div>
+    <div class="task-list" id="task-list">
+      <div class="task-empty">暂无任务</div>
+    </div>
+  </aside>
+
+</main>
+
+<!-- 完成提醒弹窗（默认隐藏） -->
+<div id="notification" class="notification hidden">
+  <div class="notification-content">
+    <div class="notification-icon">✅</div>
+    <h3 id="notification-title">任务完成!</h3>
+    <p id="notification-msg"></p>
+    <div class="notification-actions">
+      <button class="btn-primary" onclick="dismissNotification()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

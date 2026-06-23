@@ -1,0 +1,329 @@
+/* MyAgent Web 前端样式 */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: #f0f2f5;
+    color: #2c3e50;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ——— 顶部栏 ——— */
+
+.header {
+    background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+    color: white;
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.header-left h1 { font-size: 20px; }
+.header-subtitle { font-size: 12px; opacity: 0.8; margin-left: 4px; }
+
+.model-select {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.15);
+    color: white;
+    font-size: 13px;
+    cursor: pointer;
+}
+.model-select option { color: #2c3e50; }
+
+/* ——— 主体布局 ——— */
+
+.main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ——— 左侧对话区 ——— */
+
+.chat-panel {
+    width: 60%;
+    display: flex;
+    flex-direction: column;
+    background: #fafafa;
+    border-right: 1px solid #e0e0e0;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.message {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.message.user { flex-direction: row-reverse; }
+
+.message-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    background: white;
+}
+
+.message-bubble {
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    word-break: break-word;
+}
+
+.message.bot .message-bubble {
+    background: #e3f2fd;
+    border-radius: 4px 12px 12px 12px;
+}
+
+.message.user .message-bubble {
+    background: #f3e5f5;
+    border-radius: 12px 4px 12px 12px;
+}
+
+.message-hint {
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-top: 4px;
+}
+
+/* ——— 输入区 ——— */
+
+.chat-input-area {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid #e0e0e0;
+    background: white;
+}
+
+.chat-input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+}
+
+.chat-input:focus { border-color: #3498db; }
+
+.send-btn {
+    padding: 10px 24px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    align-self: flex-end;
+}
+
+.send-btn:hover { background: #2980b9; }
+.send-btn:disabled { background: #bdc3c7; cursor: not-allowed; }
+
+/* ——— 右侧任务面板 ——— */
+
+.task-panel {
+    width: 40%;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    overflow: hidden;
+}
+
+.task-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.task-panel-header h2 { font-size: 16px; }
+
+.refresh-btn {
+    padding: 4px 12px;
+    background: #ecf0f1;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.refresh-btn:hover { background: #dfe6e9; }
+
+.task-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.task-empty {
+    text-align: center;
+    color: #95a5a6;
+    padding: 40px 0;
+    font-size: 14px;
+}
+
+/* ——— 任务卡片 ——— */
+
+.task-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+}
+
+.task-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+.task-card-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.task-status-icon { font-size: 14px; }
+
+.task-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.status-pending { color: #e67e22; background: #fef5e7; }
+.status-done { color: #27ae60; background: #e8f8f5; }
+.status-failed { color: #e74c3c; background: #fdedec; }
+
+.task-msg {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.task-time {
+    font-size: 11px;
+    color: #95a5a6;
+}
+
+.task-actions {
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* ——— 下载按钮 ——— */
+
+.btn-download {
+    display: inline-block;
+    padding: 6px 12px;
+    background: #3498db;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 12px;
+    transition: background 0.2s;
+}
+
+.btn-download:hover { background: #2980b9; }
+
+.btn-download-sm {
+    display: inline-block;
+    padding: 3px 8px;
+    background: #ecf0f1;
+    color: #2c3e50;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 11px;
+    border: 1px solid #ddd;
+}
+
+.btn-download-sm:hover { background: #dfe6e9; }
+
+/* ——— 完成提醒弹窗 ——— */
+
+.notification {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.notification.hidden { display: none; }
+
+.notification-content {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.notification-icon { font-size: 48px; margin-bottom: 12px; }
+
+.notification-content h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: #27ae60;
+}
+
+.notification-content p {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 20px;
+}
+
+.btn-primary {
+    padding: 10px 32px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.btn-primary:hover { background: #2980b9; }
+
+/* ——— 响应式 ——— */
+
+@media (max-width: 768px) {
+    .main-container { flex-direction: column; }
+    .chat-panel { width: 100%; height: 60%; }
+    .task-panel { width: 100%; height: 40%; }
+}

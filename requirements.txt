@@ -1,0 +1,23 @@
+# MyAgent 核心依赖
+
+# LLM API 客户端
+openai>=1.0.0          # OpenAI 兼容接口 (DeepSeek/GLM/Qwen)
+anthropic>=0.30.0      # Anthropic Claude API
+
+# CLI 框架
+click>=8.1.0           # 命令行接口
+
+# 配置文件
+pyyaml>=6.0            # YAML 配置解析
+
+# 数据处理
+numpy>=1.24.0          # 数值计算
+Pillow>=10.0.0         # 图片处理
+matplotlib>=3.7.0       # 曲线图绘制
+
+# 工具
+colorama>=0.4.6        # 终端颜色输出
+
+# Web 服务
+fastapi>=0.110.0
+uvicorn>=0.27.0

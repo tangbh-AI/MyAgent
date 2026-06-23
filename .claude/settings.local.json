@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(conda run *)",
+      "Bash(D:/anaconda/envs/ccuse/python.exe *)",
+      "Bash(conda activate *)",
+      "Bash(python -c ' *)",
+      "WebSearch"
+    ]
+  }
+}

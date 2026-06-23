@@ -1,0 +1,13 @@
+{
+  "summary": {
+    "max_stress_mises": 1352.2,
+    "min_stress_mises": 6.37,
+    "max_displacement": 10.7409,
+    "max_principal_stress": 1400.09,
+    "min_principal_stress": -1400.09
+  },
+  "images": [
+    "stress_contour.png",
+    "displacement_contour.png"
+  ]
+}

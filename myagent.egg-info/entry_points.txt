@@ -1,0 +1,3 @@
+[console_scripts]
+myagent = myagent.main:cli
+myagent-web = myagent.web:cli

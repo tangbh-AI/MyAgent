@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: myagent
+Version: 0.1.0
+Summary: Abaqus 自然语言智能助手 — 用中文描述仿真需求，自动执行有限元分析
+Author: MyAgent
+Requires-Python: >=3.10
+Requires-Dist: openai>=1.0.0
+Requires-Dist: anthropic>=0.30.0
+Requires-Dist: click>=8.1.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: Pillow>=10.0.0
+Requires-Dist: matplotlib>=3.7.0
+Requires-Dist: colorama>=0.4.6
+Requires-Dist: fastapi>=0.110.0
+Requires-Dist: uvicorn>=0.27.0
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

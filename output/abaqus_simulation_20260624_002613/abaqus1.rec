@@ -1,0 +1,39 @@
+# -*- coding: mbcs -*-
+from part import *
+from material import *
+from section import *
+from assembly import *
+from step import *
+from interaction import *
+from load import *
+from mesh import *
+from optimization import *
+from job import *
+from sketch import *
+from visualization import *
+from connectorBehavior import *
+mdb.Model(name='Model-1')
+mdb.models['Model-1'].ConstrainedSketch(name='TubeProfile', sheetSize=495.0)
+mdb.models['Model-1'].sketches['TubeProfile'].CircleByCenterPerimeter(center=(
+    0.0, 0.0), point1=(247.5, 0.0))
+mdb.models['Model-1'].Part(dimensionality=THREE_D, name='Tube', type=
+    DEFORMABLE_BODY)
+mdb.models['Model-1'].parts['Tube'].BaseShellExtrude(depth=1000.0, sketch=
+    mdb.models['Model-1'].sketches['TubeProfile'])
+mdb.models['Model-1'].Material(name='Steel')
+mdb.models['Model-1'].materials['Steel'].Density(table=((7.8e-09, ), ))
+mdb.models['Model-1'].materials['Steel'].Elastic(table=((210000.0, 0.3), ))
+mdb.models['Model-1'].HomogeneousShellSection(idealization=NO_IDEALIZATION, 
+    material='Steel', name='ShellSection', poissonDefinition=DEFAULT, 
+    preIntegrate=OFF, thickness=5.0, thicknessField='', thicknessModulus=None, 
+    thicknessType=UNIFORM, useDensity=OFF)
+mdb.models['Model-1'].parts['Tube'].SectionAssignment(offset=0.0, offsetField=
+    '', offsetType=MIDDLE_SURFACE, region=Region(
+    faces=mdb.models['Model-1'].parts['Tube'].faces.getSequenceFromMask(mask=(
+    '[#1 ]', ), )), sectionName='ShellSection')
+mdb.models['Model-1'].rootAssembly.Instance(dependent=ON, name='Tube-1', part=
+    mdb.models['Model-1'].parts['Tube'])
+mdb.models['Model-1'].FrequencyStep(acousticRange=(0.0, 0.0), eigensolver=
+    LANCZOS, maxIterations=60, name='ModalAnalysis', numEigen=10, previous=
+    'Initial', projectDamping=OFF, shiftPoint=None, useBoundaryDamping=OFF)
+#* TypeError:  ¹Ø¼ü×Ö´íÎó: acousticRange

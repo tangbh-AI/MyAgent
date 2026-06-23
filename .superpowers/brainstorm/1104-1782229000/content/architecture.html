@@ -1,0 +1,158 @@
+<h2>MyAgent Web 端 — 架构设计总览</h2>
+<p class="subtitle">FastAPI + 静态前端 + 后台任务队列，复用全部现有核心模块</p>
+
+<div class="section">
+  <h3>整体架构</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">系统数据流</div>
+  <div class="mockup-body">
+    <div style="font-family:monospace;font-size:12px;line-height:1.8;padding:12px;background:#f8f9fa;border-radius:6px;">
+      <div style="color:#e74c3c;">浏览器 (HTML/JS)</div>
+      <div style="margin-left:20px;">│</div>
+      <div style="margin-left:20px;">├─ POST /chat { "message": "..." }</div>
+      <div style="margin-left:20px;">├─ GET /tasks/{id}  (轮询状态)</div>
+      <div style="margin-left:20px;">└─ GET /download/{id}/report</div>
+      <div style="color:#3498db;margin-top:8px;">FastAPI 应用 (myagent/web.py)</div>
+      <div style="margin-left:20px;">│</div>
+      <div style="margin-left:20px;">├─ 接收请求 → 创建任务 → 启后台线程</div>
+      <div style="margin-left:20px;">├─ 后台执行 5 阶段流水线</div>
+      <div style="margin-left:20px;">└─ 任务完成 → 标记状态 → 用户刷新</div>
+      <div style="color:#27ae60;margin-top:8px;">核心模块 (复用，不改动)</div>
+      <div style="margin-left:20px;">│</div>
+      <div style="margin-left:20px;">├─ ScriptGenerator  → 参数提取+脚本生成</div>
+      <div style="margin-left:20px;">├─ AbaqusExecutor  → subprocess 执行仿真</div>
+      <div style="margin-left:20px;">├─ ResultReader    → ODB → results.json + PNG</div>
+      <div style="margin-left:20px;">└─ ReportGenerator → matplotlib → HTML报告</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px;">
+  <h3>新增文件清单</h3>
+</div>
+
+<table style="width:100%;font-size:13px;border-collapse:collapse;">
+  <tr style="background:#f8f9fa;">
+    <th style="padding:8px;text-align:left;border-bottom:2px solid #3498db;">文件</th>
+    <th style="padding:8px;text-align:left;border-bottom:2px solid #3498db;">职责</th>
+    <th style="padding:8px;text-align:left;border-bottom:2px solid #3498db;">行数预估</th>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">myagent/web.py</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">FastAPI 应用：路由、任务管理、后台线程</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">~180</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">myagent/static/index.html</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">前端页面：左右分栏布局、对话、任务列表</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">~250</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">myagent/static/app.js</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">前端逻辑：发送消息、轮询状态、下载报告</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">~120</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">myagent/static/style.css</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">样式：左右分栏、消息气泡、任务卡片</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">~200</td>
+  </tr>
+</table>
+
+<div class="section" style="margin-top:16px;">
+  <h3>任务状态机</h3>
+</div>
+
+<div class="mockup">
+  <div class="mockup-body">
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;font-size:13px;font-family:monospace;padding:16px;background:#f8f9fa;border-radius:6px;">
+      <span style="background:#3498db;color:white;padding:6px 12px;border-radius:20px;">📨 已提交</span>
+      <span style="color:#7f8c8d;">→</span>
+      <span style="background:#f39c12;color:white;padding:6px 12px;border-radius:20px;">🔧 脚本生成中</span>
+      <span style="color:#7f8c8d;">→</span>
+      <span style="background:#f39c12;color:white;padding:6px 12px;border-radius:20px;">⚙️ 仿真执行中</span>
+      <span style="color:#7f8c8d;">→</span>
+      <span style="background:#f39c12;color:white;padding:6px 12px;border-radius:20px;">📊 提取结果中</span>
+      <span style="color:#7f8c8d;">→</span>
+      <span style="background:#27ae60;color:white;padding:6px 12px;border-radius:20px;">✅ 完成</span>
+    </div>
+    <div style="text-align:center;margin-top:8px;font-size:12px;color:#7f8c8d;">
+      前端每 3 秒轮询 GET /tasks/{id}，状态变为"完成"时弹出刷新提醒
+    </div>
+    <div style="text-align:center;margin-top:4px;font-size:12px;color:#e74c3c;">
+      失败状态: ❌ 脚本生成失败 | ❌ 仿真执行失败 | ❌ 结果提取失败
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px;">
+  <h3>API 端点设计</h3>
+</div>
+
+<table style="width:100%;font-size:13px;border-collapse:collapse;">
+  <tr style="background:#f8f9fa;">
+    <th style="padding:8px;text-align:left;border-bottom:2px solid #3498db;">方法</th>
+    <th style="padding:8px;text-align:left;border-bottom:2px solid #3498db;">路径</th>
+    <th style="padding:8px;text-align:left;border-bottom:2px solid #3498db;">说明</th>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;"><code>GET</code></td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">/</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">前端页面</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;"><code>POST</code></td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">/api/chat</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">提交仿真描述 → 返回 task_id</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;"><code>GET</code></td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">/api/tasks/{task_id}</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">查询任务状态 {status, progress, result}</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;"><code>GET</code></td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">/api/tasks</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">列出所有任务（历史记录）</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;"><code>GET</code></td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">/api/models</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">列出可用模型</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;"><code>GET</code></td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">/download/{task_id}/report</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">下载 HTML 报告</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;"><code>GET</code></td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;font-family:monospace;">/download/{task_id}/{filename}</td>
+    <td style="padding:6px 8px;border-bottom:1px solid #eee;">下载云图 PNG / results.json 等</td>
+  </tr>
+</table>
+
+<div class="section" style="margin-top:16px;">
+  <h3>与现有 CLI 的关系</h3>
+</div>
+
+<div class="pros-cons">
+  <div class="pros">
+    <h4>保持不变</h4>
+    <ul>
+      <li><code>myagent</code> CLI 命令完全不受影响</li>
+      <li>config.yaml 配置共享</li>
+      <li>所有核心模块 (generator/executor/result/report) 零改动</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>新增</h4>
+    <ul>
+      <li><code>myagent web</code> 启动 Web 服务</li>
+      <li>新增依赖: fastapi + uvicorn</li>
+      <li>TaskManager 管理后台任务生命周期</li>
+    </ul>
+  </div>
+</div>

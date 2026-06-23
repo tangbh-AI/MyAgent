@@ -1,0 +1,92 @@
+# MyAgent 配置文件模板
+#
+# 使用方法：
+#   1. 将此文件复制为 D:\MyAgent\config.yaml
+#   2. 设置对应的环境变量（API Key）
+#   3. 启动 myagent
+#
+# ⚠️ 安全提示：
+#   所有 API Key 使用 ${ENV_VAR} 环境变量引用，不要在此文件中硬编码真实 Key。
+
+# 默认使用的 AI 模型
+default_model: deepseek-v4-pro
+
+# AI 模型列表
+models:
+  # ——— DeepSeek 系列 (OpenAI 协议) ———
+  - name: deepseek-v4-pro
+    provider: openai_compat
+    api_key: ${DEEPSEEK_API_KEY}
+    base_url: https://api.deepseek.com
+    model_id: deepseek-v4-pro
+
+  - name: deepseek-v4-flash
+    provider: openai_compat
+    api_key: ${DEEPSEEK_API_KEY}
+    base_url: https://api.deepseek.com
+    model_id: deepseek-v4-flash
+
+  # ——— DeepSeek 系列 (Anthropic 协议) ———
+  - name: deepseek-v4-pro-anthropic
+    provider: anthropic
+    api_key: ${DEEPSEEK_API_KEY}
+    base_url: https://api.deepseek.com/anthropic
+    model_id: deepseek-v4-pro
+
+  - name: deepseek-v4-flash-anthropic
+    provider: anthropic
+    api_key: ${DEEPSEEK_API_KEY}
+    base_url: https://api.deepseek.com/anthropic
+    model_id: deepseek-v4-flash
+
+  # ——— DeepSeek 推理模型 ———
+  - name: deepseek-r1
+    provider: openai_compat
+    api_key: ${DEEPSEEK_API_KEY}
+    base_url: https://api.deepseek.com
+    model_id: deepseek-reasoner
+
+  # ——— 智谱 GLM 系列 ———
+  - name: glm-4
+    provider: openai_compat
+    api_key: ${GLM_API_KEY}
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    model_id: glm-4-flash
+
+  - name: glm-4-plus
+    provider: openai_compat
+    api_key: ${GLM_API_KEY}
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    model_id: glm-4-plus
+
+  # ——— 通义千问 ———
+  - name: qwen-max
+    provider: openai_compat
+    api_key: ${QWEN_API_KEY}
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model_id: qwen-max
+
+  # ——— Anthropic Claude 系列 ———
+  - name: claude-sonnet
+    provider: anthropic
+    api_key: ${ANTHROPIC_API_KEY}
+    model_id: claude-sonnet-4-6
+
+  - name: claude-opus
+    provider: anthropic
+    api_key: ${ANTHROPIC_API_KEY}
+    model_id: claude-opus-4-8
+
+# Abaqus 配置
+abaqus:
+  command_path: C:\SIMULIA\Commands\abaqus.bat
+  version: 2024
+  install_path: C:\SIMULIA\EstProducts\2024
+  work_dir: output
+
+# 仿真默认设置
+simulation:
+  default_material: steel       # 默认材料
+  default_units: mm_N_s         # 默认单位制
+  default_mesh_size: 5.0        # 默认网格尺寸 (mm)
+  timeout: 3600                 # 超时时间 (秒)
