@@ -2,6 +2,7 @@
 
 启动命令: myagent-web
 提供 REST API + 静态文件服务，支持浏览器端对话式仿真。
+支持多 CAE 后端切换。
 """
 
 import os
@@ -19,10 +20,12 @@ from fastapi.staticfiles import StaticFiles
 
 from myagent.config import get_config
 from myagent.llm.factory import get_llm, list_models as list_llm_models
-from myagent.abaqus.generator import ScriptGenerator
-from myagent.abaqus.executor import AbaqusExecutor
-from myagent.abaqus.result import ResultReader
+from myagent.cae import create_generator, create_executor, get_result_reader, list_backends, get_backend_info
 from myagent.report import ReportGenerator
+
+# 确保所有 CAE 后端在启动时注册
+import myagent.abaqus  # noqa: F401 — 注册 Abaqus 后端
+import myagent.nnw     # noqa: F401 — 注册 NNW-HyFLOW 后端
 
 
 # ——— TaskManager ———
@@ -38,12 +41,13 @@ class TaskManager:
         self._tasks: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
 
-    def create(self, user_message: str, model_name: str) -> str:
+    def create(self, user_message: str, model_name: str, backend: str = "") -> str:
         """创建新任务
 
         Args:
             user_message: 用户仿真描述
             model_name: 使用的 LLM 模型名称
+            backend: CAE 后端名称
 
         Returns:
             task_id
@@ -56,6 +60,7 @@ class TaskManager:
                 "task_id": task_id,
                 "user_message": user_message,
                 "model_name": model_name,
+                "backend": backend,
                 "status": "submitted",
                 "status_text": "已提交",
                 "progress_detail": "",
@@ -93,7 +98,7 @@ task_manager = TaskManager()
 
 # ——— 仿真执行（后台线程） ———
 
-def run_simulation_pipeline(task_id: str, user_message: str, model_name: str):
+def run_simulation_pipeline(task_id: str, user_message: str, model_name: str, backend: str = ""):
     """后台执行完整的 5 阶段仿真流水线
 
     此函数在独立线程中运行，不阻塞 HTTP 响应。
@@ -103,16 +108,22 @@ def run_simulation_pipeline(task_id: str, user_message: str, model_name: str):
         task_id: 任务 ID
         user_message: 用户仿真描述
         model_name: LLM 模型名称
+        backend: CAE 后端名称（默认读取配置）
     """
     config = get_config()
+    if not backend:
+        backend = config.cae_backend
     job_dir = None
 
     try:
         # ——— 阶段 1+2: 参数提取 + 脚本生成 ———
         task_manager.update(task_id, status="generating",
                             status_text="脚本生成中",
-                            progress_detail="正在生成 Abaqus 脚本...")
-        generator = ScriptGenerator(model_name=model_name)
+                            progress_detail=f"正在生成 {backend} 脚本...")
+        generator = create_generator(backend, model_name, config)
+
+        # 先提取参数以获取后端特定信息（如 NNW 的网格路径）
+        params = generator.extract_parameters(user_message)
 
         # Web 端跳过交互确认，直接生成脚本
         script, script_path = generator.generate_script(
@@ -123,13 +134,19 @@ def run_simulation_pipeline(task_id: str, user_message: str, model_name: str):
         # ——— 阶段 3: 执行仿真 ———
         task_manager.update(task_id, status="executing",
                             status_text="仿真执行中",
-                            progress_detail="正在运行 Abaqus（可能需要几分钟）...")
-        executor = AbaqusExecutor(
-            abaqus_command=config.abaqus_command,
-            work_dir=config.work_dir,
-            timeout=config.timeout,
-        )
-        exec_result = executor.execute(script_path)
+                            progress_detail=f"正在运行 {backend}（可能需要几分钟）...")
+        executor = create_executor(backend, config)
+
+        # 提取后端特定参数（如 NNW 需要的网格路径）
+        extra_kwargs = {}
+        if backend == "nnw":
+            grid_path = params.get("grid", {}).get("path", "") if "error" not in params else ""
+            if grid_path:
+                from pathlib import Path as _Path
+                if _Path(grid_path).exists():
+                    extra_kwargs["grid_path"] = grid_path
+
+        exec_result = executor.execute(script_path, **extra_kwargs)
 
         if not exec_result["success"]:
             error_msg = exec_result.get("error", "仿真执行失败")
@@ -141,11 +158,36 @@ def run_simulation_pipeline(task_id: str, user_message: str, model_name: str):
 
         job_dir = exec_result["job_dir"]
 
+        # 检查是否需要手动运行
+        if exec_result.get("needs_manual_run"):
+            note = exec_result.get("note", "")
+            task_manager.update(
+                task_id,
+                status="completed",
+                status_text="脚本已准备",
+                progress_detail="",
+                result_summary={
+                    "text": (f"📋 {note}\n\n📁 作业目录: {job_dir}"),
+                    "needs_manual": True,
+                },
+                result_images=[],
+                report_path=None,
+                job_dir=job_dir,
+            )
+            return
+
         # ——— 阶段 4: 结果提取 ———
         task_manager.update(task_id, status="extracting",
                             status_text="提取结果中",
                             progress_detail="正在读取仿真结果...")
-        result = ResultReader.read(job_dir)
+        result_reader_cls = get_result_reader(backend)
+        result = result_reader_cls.read(job_dir)
+
+        # 将 LLM 提取的项目名称注入结果（供报告使用）
+        if result.success and hasattr(generator, 'extracted_params'):
+            ep = generator.extracted_params
+            if isinstance(ep, dict) and 'analysis_type' in ep:
+                result.results_json['summary']['project_name'] = ep['analysis_type']
 
         if not result.success:
             task_manager.update(task_id, status="failed",
@@ -158,7 +200,7 @@ def run_simulation_pipeline(task_id: str, user_message: str, model_name: str):
         task_manager.update(task_id, progress_detail="正在生成分析报告...")
         report_path = None
         try:
-            report_path = ReportGenerator(job_dir).generate()
+            report_path = ReportGenerator(job_dir, solver_name=backend).generate()
         except Exception as e:
             pass  # 报告生成失败非致命
 
@@ -170,7 +212,7 @@ def run_simulation_pipeline(task_id: str, user_message: str, model_name: str):
             status_text="已完成",
             progress_detail="",
             result_summary={
-                "text": ResultReader.get_text_summary(result),
+                "text": result.get_text_summary(),
                 "max_stress": summary.get("max_stress_mises"),
                 "max_displacement": summary.get("max_displacement"),
                 "safety_factor": summary.get("safety_factor"),
@@ -193,7 +235,7 @@ _STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI(
     title="MyAgent Web",
-    description="Abaqus 自然语言智能助手 Web 端",
+    description="CAE 自然语言智能助手 Web 端",
     version="0.1.0",
 )
 
@@ -224,6 +266,7 @@ async def api_chat(request: Request):
         raise HTTPException(status_code=400, detail="message 不能为空")
 
     model_name = body.get("model") or get_config().default_model
+    backend = body.get("backend") or get_config().cae_backend
 
     # 验证模型是否已配置
     config = get_config()
@@ -231,12 +274,18 @@ async def api_chat(request: Request):
         raise HTTPException(status_code=400,
                             detail=f"模型 '{model_name}' 未配置 API Key，请在终端中设置")
 
-    task_id = task_manager.create(user_message, model_name)
+    # 验证后端是否存在
+    available = list_backends()
+    if backend not in available:
+        raise HTTPException(status_code=400,
+                            detail=f"未知后端: '{backend}'，可用: {', '.join(available)}")
+
+    task_id = task_manager.create(user_message, model_name, backend=backend)
 
     # 启动后台线程执行仿真
     thread = threading.Thread(
         target=run_simulation_pipeline,
-        args=(task_id, user_message, model_name),
+        args=(task_id, user_message, model_name, backend),
         daemon=True,
     )
     thread.start()
@@ -299,6 +348,22 @@ async def api_list_models():
         }
         for m in models
     ])
+
+
+@app.get("/api/backends")
+async def api_list_backends():
+    """列出可用 CAE 后端"""
+    config = get_config()
+    current = config.cae_backend
+    backends = []
+    for name in list_backends():
+        info = get_backend_info(name)
+        backends.append({
+            "name": name,
+            "display_name": info.get("name", name),
+            "current": name == current,
+        })
+    return JSONResponse(backends)
 
 
 # ——— 下载端点 ———
@@ -393,7 +458,7 @@ def cli():
 
         print(f"""
 ╔══════════════════════════════════════════════╗
-║       MyAgent Web — Abaqus 智能助手         ║
+║       MyAgent Web — CAE 智能助手             ║
 ║                                              ║
 ║  浏览器打开: http://{host}:{port}              ║
 ║  API 文档:   http://{host}:{port}/docs        ║

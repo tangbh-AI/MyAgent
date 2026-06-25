@@ -137,7 +137,7 @@ def test_text_summary_from_presenter():
     }
     r.images = ["contour.png"]
 
-    text_summary = ResultReader.get_text_summary(r)
+    text_summary = r.get_text_summary()
     assert '200.00' in text_summary
     assert '5.00' in text_summary
     assert 'contour.png' in text_summary

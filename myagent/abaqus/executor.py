@@ -8,8 +8,10 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, Tuple
 
+from myagent.cae.base import AbstractExecutor
 
-class AbaqusExecutor:
+
+class AbaqusExecutor(AbstractExecutor):
     """Abaqus 脚本执行器
 
     负责调用 Abaqus CAE 执行 Python 脚本，
@@ -78,6 +80,26 @@ class AbaqusExecutor:
         import shutil
         dest_script = job_dir / script_path.name
         shutil.copy2(script_path, dest_script)
+
+        # ——— 预执行语法校验（防御 LLM 输出截断等问题） ———
+        script_content = dest_script.read_text(encoding="utf-8")
+        try:
+            compile(script_content, str(dest_script), "exec")
+        except SyntaxError as e:
+            error_msg = (
+                f"脚本语法错误（可能由 LLM 输出截断导致）:\n"
+                f"  文件: {dest_script.name}\n"
+                f"  错误: {e.msg} (第 {e.lineno} 行)"
+            )
+            return {
+                "success": False,
+                "job_dir": str(job_dir),
+                "stdout": "",
+                "stderr": error_msg,
+                "return_code": -1,
+                "duration": 0.0,
+                "error": error_msg,
+            }
 
         # 构建 Abaqus 命令
         # abaqus cae noGUI=script.py — 在作业目录中执行

@@ -5,7 +5,7 @@ import webbrowser
 from pathlib import Path
 from typing import List, Optional
 
-from myagent.abaqus.result import ResultReader, SimulationResult
+from myagent.cae.base import SimulationResult
 
 
 class Presenter:
@@ -18,13 +18,15 @@ class Presenter:
     4. （可选）自动打开结果图片
     """
 
-    def __init__(self, auto_open_images: bool = False):
+    def __init__(self, auto_open_images: bool = False, backend_name: str = "Abaqus"):
         """初始化呈现器
 
         Args:
             auto_open_images: 是否自动打开结果图片
+            backend_name: CAE 后端显示名称
         """
         self.auto_open_images = auto_open_images
+        self.backend_name = backend_name
 
     def present(
         self,
@@ -61,7 +63,7 @@ class Presenter:
 
         # 数值结果
         lines.append("\n[data] 关键结果:")
-        text_summary = ResultReader.get_text_summary(result)
+        text_summary = result.get_text_summary()
         lines.append(text_summary)
 
         # 图片文件
@@ -96,16 +98,17 @@ class Presenter:
                     pass  # 无法打开图片时静默失败
 
     @staticmethod
-    def show_progress(stage: str, message: str = ""):
+    def show_progress(stage: str, message: str = "", backend_name: str = "CAE"):
         """显示进度信息
 
         Args:
             stage: 当前阶段名称
             message: 补充信息
+            backend_name: CAE 后端显示名称（默认 "CAE"）
         """
         stages = {
-            "generate": "[gen] 生成 Abaqus 脚本...",
-            "execute": "[run] 执行仿真计算...",
+            "generate": f"[gen] 生成 {backend_name} 脚本...",
+            "execute": f"[run] 执行 {backend_name} 仿真计算...",
             "extract": "[data] 提取仿真结果...",
             "analyze": "[bot] 分析结果数据...",
             "report": "[report] 生成可视化报告...",
@@ -118,10 +121,14 @@ class Presenter:
             print(prefix)
 
     @staticmethod
-    def show_welcome():
-        """显示欢迎信息"""
+    def show_welcome(backend_name: str = "Abaqus"):
+        """显示欢迎信息
+
+        Args:
+            backend_name: CAE 后端显示名称
+        """
         print("\n" + "=" * 60)
-        print("       [bot] MyAgent — Abaqus 自然语言智能助手")
+        print(f"       [bot] MyAgent — {backend_name} 自然语言智能助手")
         print("=" * 60)
         print("用中文描述你的仿真需求，我来帮你自动完成分析。")
         print("输入 'help' 查看帮助，输入 'quit' 或 'exit' 退出。")
@@ -146,6 +153,11 @@ class Presenter:
 [key] API Key 管理:
   apikey set <模型名> <key>  — 设置/更新模型的 API Key
   apikey show [模型名]       — 查看 API Key（脱敏显示）
+
+[backend] CAE 后端切换:
+  backend           — 显示当前后端和可用后端列表
+  backend list      — 列出所有可用后端
+  backend <name>    — 切换到指定后端
 
 [tool] 其他:
   clear          — 清空对话上下文

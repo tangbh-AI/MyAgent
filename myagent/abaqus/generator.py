@@ -9,12 +9,13 @@ from typing import Dict, List, Optional, Tuple
 
 from myagent.config import get_config
 from myagent.llm.factory import get_llm
+from myagent.cae.base import AbstractScriptGenerator
 from myagent.abaqus.knowledge import (
     get_abaqus_system_prompt, DEFAULT_MATERIALS, RESULT_SAVER_CODE
 )
 
 
-class ScriptGenerator:
+class ScriptGenerator(AbstractScriptGenerator):
     """Abaqus 脚本生成器
 
     使用 LLM 将用户的自然语言描述转化为 Abaqus Python 仿真脚本。
@@ -64,9 +65,8 @@ class ScriptGenerator:
         self.output_dir = Path(output_dir or config.work_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # 用于存储对话历史和上下文
-        self.conversation_history: List[Dict[str, str]] = []
-        self.extracted_params: Dict = {}
+        # 调用抽象基类的初始化
+        super().__init__()
 
     def extract_parameters(self, user_input: str) -> Dict:
         """从用户输入中提取仿真参数
@@ -173,7 +173,7 @@ class ScriptGenerator:
         response = self.llm.chat(
             messages,
             temperature=0.2,
-            max_tokens=8192,
+            max_tokens=16384,
         )
 
         # 提取 Python 代码块
@@ -181,6 +181,9 @@ class ScriptGenerator:
 
         # ——— 强制注入结果保存代码 ———
         script = script.rstrip() + "\n\n" + RESULT_SAVER_CODE
+
+        # ——— 语法验证（防御 LLM 输出截断） ———
+        self._validate_script(script, "Abaqus")
 
         # 保存脚本文件
         if output_dir:
@@ -235,6 +238,85 @@ class ScriptGenerator:
             return "\n".join(code_lines)
 
         return response.strip()
+
+    @staticmethod
+    def _validate_script(code: str, context: str = ""):
+        """验证生成的 Python 代码语法是否合法
+
+        若语法错误，检查是否为截断特征（末行不完整、括号不匹配、
+        以冒号结尾等），给出明确的错误信息。
+
+        Args:
+            code: 待验证的 Python 代码
+            context: 生成上下文描述（用于错误信息）
+
+        Raises:
+            SyntaxError: 代码语法不合法
+        """
+        if not code or not code.strip():
+            raise SyntaxError(
+                f"Abaqus 脚本生成失败 ({context}): LLM 返回了空脚本，"
+                f"可能是 API 返回异常或 max_tokens 过低"
+            )
+
+        try:
+            compile(code, "<abaqus_generated>", "exec")
+        except SyntaxError as e:
+            # 检查截断特征
+            lines = code.rstrip().split("\n")
+            last_line = lines[-1].strip() if lines else ""
+
+            truncated = False
+            reasons = []
+
+            # 特征 1: 末行以冒号结尾（语句头不完整）
+            if last_line.endswith(":"):
+                truncated = True
+                reasons.append("末行以冒号结尾（语句头不完整）")
+
+            # 特征 2: 末行是不完整关键词
+            incomplete_keywords = [
+                "for", "if", "while", "def", "class", "with", "try",
+                "elif", "else", "except", "finally",
+            ]
+            if last_line in incomplete_keywords:
+                truncated = True
+                reasons.append(f"末行仅有 '{last_line}' 关键字（语句体缺失）")
+
+            # 特征 3: 括号/引号不匹配
+            open_parens = code.count("(") - code.count(")")
+            open_brackets = code.count("[") - code.count("]")
+            open_braces = code.count("{") - code.count("}")
+            if open_parens > 0 or open_brackets > 0 or open_braces > 0:
+                truncated = True
+                parts = []
+                if open_parens > 0:
+                    parts.append(f"'(' 多 {open_parens}")
+                if open_brackets > 0:
+                    parts.append(f"'[' 多 {open_brackets}")
+                if open_braces > 0:
+                    parts.append(f"'{{' 多 {open_braces}")
+                reasons.append(f"括号不匹配: {', '.join(parts)}")
+
+            # 特征 4: 末行看起来是半截代码
+            if not truncated and last_line and not last_line.endswith((")", "]", "}", "'", '"')):
+                if last_line.rstrip().endswith((",", "+", "-", "*", "/", "=", "\\")):
+                    truncated = True
+                    reasons.append(f"末行以运算符结尾: '{last_line[-20:]}'")
+
+            if truncated:
+                raise SyntaxError(
+                    f"Abaqus 脚本生成失败 ({context}): LLM 输出疑似被截断 "
+                    f"(max_tokens 不足)。\n"
+                    f"截断特征: {'; '.join(reasons)}\n"
+                    f"原始语法错误: {e.msg} (第 {e.lineno} 行)\n\n"
+                    f"建议: 尝试简化模型描述或增大 LLM 的 max_tokens 参数。"
+                ) from e
+            else:
+                raise SyntaxError(
+                    f"Abaqus 脚本生成失败 ({context}): {e.msg} (第 {e.lineno} 行)\n"
+                    f"错误行: {code.split(chr(10))[e.lineno-1] if e.lineno and e.lineno <= len(code.split(chr(10))) else '?'}"
+                ) from e
 
     def switch_model(self, model_name: str):
         """切换 LLM 模型

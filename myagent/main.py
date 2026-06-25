@@ -2,6 +2,7 @@
 
 启动命令: myagent 或 myagent chat
 支持 --model 切换模型，--config 指定配置文件
+支持多 CAE 后端，通过 config.yaml 切换
 """
 
 import os
@@ -13,16 +14,22 @@ import click
 
 from myagent.config import Config, get_config
 from myagent.llm.factory import get_llm, list_models as list_llm_models
-from myagent.abaqus.generator import ScriptGenerator
-from myagent.abaqus.executor import AbaqusExecutor
-from myagent.abaqus.result import ResultReader
+from myagent.cae import (
+    create_generator, create_executor, get_result_reader,
+    list_backends, get_backend_info,
+)
 from myagent.presenter import Presenter
+
+# 确保所有 CAE 后端在启动时注册
+import myagent.abaqus  # noqa: F401 — 注册 Abaqus 后端
+import myagent.nnw     # noqa: F401 — 注册 NNW-HyFLOW 后端
 
 
 class MyAgent:
     """MyAgent 主控制器
 
-    管理交互对话循环，协调各模块完成 NL → Abaqus 仿真的完整流程。
+    管理交互对话循环，协调各模块完成 NL → CAE 仿真的完整流程。
+    支持多 CAE 后端，通过 config.yaml 的 cae.backend 切换。
     """
 
     def __init__(self, model_name: Optional[str] = None, config_path: Optional[str] = None):
@@ -35,26 +42,30 @@ class MyAgent:
         # 加载配置
         self.config = get_config(config_path)
         self.model_name = model_name or self.config.default_model
-        self.presenter = Presenter(auto_open_images=False)
+        self.backend = self.config.cae_backend
+        self.backend_info = get_backend_info(self.backend)
+        self.presenter = Presenter(
+            auto_open_images=False,
+            backend_name=self.backend_info.get("name", self.backend),
+        )
         self._components_ready = False
 
     def _init_components(self):
-        """初始化/重建各组件"""
+        """初始化/重建各组件（通过 CAE 工厂创建）"""
         try:
-            self.generator = ScriptGenerator(model_name=self.model_name)
+            self.generator = create_generator(self.backend, self.model_name, self.config)
         except Exception as e:
-            raise RuntimeError(f"初始化 LLM 失败（模型 '{self.model_name}'）: {e}")
+            raise RuntimeError(
+                f"初始化 LLM 失败（模型 '{self.model_name}'，后端 '{self.backend}'）: {e}"
+            )
 
-        self.executor = AbaqusExecutor(
-            abaqus_command=self.config.abaqus_command,
-            work_dir=self.config.work_dir,
-            timeout=self.config.timeout,
-        )
+        self.executor = create_executor(self.backend, self.config)
+        self._result_reader_cls = get_result_reader(self.backend)
         self._components_ready = True
 
     def run(self):
         """启动交互对话循环"""
-        self.presenter.show_welcome()
+        self.presenter.show_welcome(self.backend_info.get("name", self.backend))
 
         # 检查默认模型是否已配置 Key，未配置则现场激活
         if not self.config.is_model_configured(self.model_name):
@@ -154,6 +165,22 @@ class MyAgent:
             print("[clear]  对话上下文已清空。")
             return True
 
+        elif cmd == "backend":
+            # 显示当前后端 + 可用列表
+            print(f"\n[i] 当前 CAE 后端: {self.backend_info.get('name', self.backend)} [{self.backend}]")
+            self._list_backends()
+            return True
+
+        elif cmd == "backend list":
+            self._list_backends()
+            return True
+
+        elif cmd.startswith("backend "):
+            # backend <name> — 切换后端
+            new_backend = cmd[8:].strip()
+            self._switch_backend(new_backend)
+            return True
+
         return False
 
     def _list_models(self):
@@ -201,6 +228,44 @@ class MyAgent:
         self.model_name = model_name
         self._init_components()
         print(f"[OK] 已切换到模型: {model_name}")
+
+    def _switch_backend(self, backend_name: str):
+        """切换 CAE 后端
+
+        参照 _switch_model() 模式：验证 → 保存 → 重建组件。
+
+        Args:
+            backend_name: 后端名称
+        """
+        available = list_backends()
+        if backend_name not in available:
+            print(f"[X] 未知后端: '{backend_name}'，可用: {', '.join(available)}")
+            return
+
+        if backend_name == self.backend:
+            print(f"[i] 已在使用后端: {self.backend_info.get('name', self.backend)}")
+            return
+
+        # 持久化到 config.yaml
+        self.config.set_cae_backend(backend_name)
+
+        # 更新状态
+        self.backend = backend_name
+        self.backend_info = get_backend_info(self.backend)
+
+        # 重建组件
+        self._init_components()
+        print(f"[OK] 已切换到后端: {self.backend_info.get('name', self.backend)}")
+
+    def _list_backends(self):
+        """列出所有可用的 CAE 后端"""
+        backends = list_backends()
+        print(f"\n[backend] 可用 CAE 后端 ({len(backends)} 个):")
+        for name in backends:
+            info = get_backend_info(name)
+            marker = " * 当前" if name == self.backend else ""
+            print(f"  - {info.get('name', name)} [{name}]{marker}")
+        print()
 
     def _activate_model(self, model_name: str) -> bool:
         """激活未配置的模型 — 要求用户输入 API Key
@@ -378,7 +443,8 @@ class MyAgent:
             clarified_params += f"\n用户修改意见:\n{confirm}\n"
 
         # ——— 阶段 3: 脚本生成 ———
-        self.presenter.show_progress("generate", "正在生成 Abaqus 脚本...")
+        backend_label = self.backend_info.get("name", self.backend)
+        self.presenter.show_progress("generate", f"正在生成 {backend_label} 脚本...")
 
         script, script_path = self.generator.generate_script(
             user_input=user_input,
@@ -389,9 +455,21 @@ class MyAgent:
         print(f"   脚本长度: {len(script)} 字符 / {len(script.splitlines())} 行")
 
         # ——— 阶段 4: 执行仿真 ———
-        self.presenter.show_progress("execute", "正在运行 Abaqus 仿真（可能需要几分钟）...")
+        self.presenter.show_progress("execute", f"正在运行 {backend_label} 仿真（可能需要几分钟）...")
 
-        exec_result = self.executor.execute(script_path)
+        # 提取后端特定参数（如 NNW 需要的网格路径）
+        extra_kwargs = {}
+        if self.backend == "nnw":
+            grid_path = params.get("grid", {}).get("path", "")
+            if grid_path:
+                from pathlib import Path as _Path
+                if _Path(grid_path).exists():
+                    extra_kwargs["grid_path"] = grid_path
+                    print(f"[i] 网格路径: {grid_path}")
+                else:
+                    print(f"[!] 网格路径不存在: {grid_path}，将依赖参数文件中的路径")
+
+        exec_result = self.executor.execute(script_path, **extra_kwargs)
 
         if not exec_result["success"]:
             print(f"\n[X] 仿真执行失败!")
@@ -400,12 +478,26 @@ class MyAgent:
                 print(f"   详细信息:\n{exec_result['stderr'][:500]}")
             return
 
+        # 检查是否需要手动运行
+        if exec_result.get("needs_manual_run"):
+            note = exec_result.get("note", "")
+            job_dir = exec_result.get("job_dir", "")
+            print(f"\n[📋] {note}")
+            print(f"[📁] 作业目录: {job_dir}")
+            return
+
         print(f"[OK] 仿真计算完成 (耗时 {exec_result['duration']} 秒)")
 
         # ——— 阶段 5: 结果提取 ———
         self.presenter.show_progress("extract")
 
-        result = ResultReader.read(exec_result["job_dir"])
+        result = self._result_reader_cls.read(exec_result["job_dir"])
+
+        # 将 LLM 提取的项目名称注入结果（供报告使用）
+        if result.success and hasattr(self.generator, 'extracted_params'):
+            ep = self.generator.extracted_params
+            if isinstance(ep, dict) and 'analysis_type' in ep:
+                result.results_json['summary']['project_name'] = ep['analysis_type']
 
         # ——— 阶段 5.5: 生成可视化报告 ———
         report_path = None
@@ -413,7 +505,10 @@ class MyAgent:
             try:
                 from myagent.report import ReportGenerator
                 self.presenter.show_progress("report", "生成分析报告...")
-                report_path = ReportGenerator(exec_result["job_dir"]).generate()
+                report_path = ReportGenerator(
+                    exec_result["job_dir"],
+                    solver_name=self.backend_info.get("name", self.backend)
+                ).generate()
             except Exception as e:
                 print(f"  [!] 报告生成失败 (非致命): {e}")
 
@@ -422,7 +517,7 @@ class MyAgent:
         print("\n" + output)
 
         # 将结果摘要存入对话历史
-        text_summary = ResultReader.get_text_summary(result)
+        text_summary = result.get_text_summary()
         self.generator.conversation_history.append({
             "role": "assistant",
             "content": f"仿真完成。结果摘要:\n{text_summary}"
@@ -497,9 +592,10 @@ class MyAgent:
     help="列出所有可用模型"
 )
 def cli(model: Optional[str], config: Optional[str], list_models: bool):
-    """MyAgent — Abaqus 自然语言智能助手
+    """MyAgent — CAE 自然语言智能助手
 
-    用中文描述仿真需求，自动生成 Abaqus 脚本并执行分析。
+    用中文描述仿真需求，自动生成 CAE 脚本并执行分析。
+    支持多种 CAE 后端。
     """
     if list_models:
         # 只列出模型，不启动对话

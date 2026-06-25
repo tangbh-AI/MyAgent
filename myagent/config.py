@@ -147,10 +147,42 @@ class Config:
         """获取工作输出目录"""
         return self.abaqus_config.get("work_dir", "output")
 
+    # ——— NNW-HyFLOW 配置 ———
+
+    @property
+    def nnw_config(self) -> Dict[str, Any]:
+        """获取 NNW-HyFLOW 配置"""
+        return self._config.get("nnw", {})
+
+    @property
+    def nnw_install_path(self) -> str:
+        """获取 NNW-HyFLOW 安装路径"""
+        return self.nnw_config.get("install_path", "")
+
+    @property
+    def nnw_solver_path(self) -> str:
+        """获取 NNW-HyFLOW 求解器完整路径
+
+        拼接 install_path + bin/ + solver
+        """
+        install = self.nnw_install_path
+        solver = self.nnw_config.get("solver", "X64/PHengLEIv3d0.exe")
+        if install:
+            return str(Path(install) / "bin" / solver)
+        return solver
+
     @property
     def simulation_config(self) -> Dict[str, Any]:
         """获取仿真默认设置"""
         return self._config.get("simulation", {})
+
+    # ——— CAE 后端选择 ———
+
+    @property
+    def cae_backend(self) -> str:
+        """获取当前 CAE 后端名称"""
+        cae_cfg = self._config.get("cae", {})
+        return cae_cfg.get("backend", "abaqus")
 
     @property
     def default_mesh_size(self) -> float:
@@ -244,6 +276,20 @@ class Config:
         """
         self._raw_config["default_model"] = model_name
         self._config["default_model"] = model_name
+        self._save()
+
+    def set_cae_backend(self, backend: str):
+        """设置当前 CAE 后端并持久化到 config.yaml
+
+        参照 set_default_model() 模式，操作 _raw_config 确保环境变量引用
+        在写回时保持完整。
+
+        Args:
+            backend: 后端名称（如 "abaqus"）
+        """
+        cae = self._raw_config.setdefault("cae", {})
+        cae["backend"] = backend
+        self._config.setdefault("cae", {})["backend"] = backend
         self._save()
 
     def _save(self):

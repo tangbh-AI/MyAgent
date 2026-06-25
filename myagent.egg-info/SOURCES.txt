@@ -17,12 +17,16 @@ myagent/abaqus/executor.py
 myagent/abaqus/generator.py
 myagent/abaqus/knowledge.py
 myagent/abaqus/result.py
+myagent/cae/__init__.py
+myagent/cae/base.py
+myagent/cae/factory.py
 myagent/llm/__init__.py
 myagent/llm/anthropic_llm.py
 myagent/llm/base.py
 myagent/llm/factory.py
 myagent/llm/openai_compat.py
 tests/__init__.py
+tests/test_cae_factory.py
 tests/test_config.py
 tests/test_integration.py
 tests/test_llm_factory.py

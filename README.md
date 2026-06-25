@@ -1,13 +1,16 @@
-# MyAgent — Abaqus 自然语言智能助手
+# MyAgent — 多 CAE 后端自然语言智能助手
 
-MyAgent 是一个 CLI 智能体，将使用者的自然语言描述转化为 Abaqus 有限元仿真操作，
+MyAgent 是一个 CLI 智能体，将使用者的自然语言描述转化为 CAE 仿真操作，
 自动执行仿真并将结果以图片和自然语言描述的方式呈现给使用者。
+
+支持多种 CAE 后端：**Abaqus**（结构有限元分析）、**NNW-HyFLOW**（计算流体力学 CFD）。
 
 ## 功能特性
 
-- 🗣️ **自然语言交互**: 用日常语言描述仿真需求，无需记忆 Abaqus 命令
+- 🗣️ **自然语言交互**: 用日常语言描述仿真需求，无需记忆 CAE 命令
 - 🤖 **多模型支持**: 支持 DeepSeek、GLM、Claude 等多种 AI 模型，可随时切换
-- 📊 **可视化结果**: 自动生成应力云图、位移图、曲线图等结果图片
+- 🔄 **多 CAE 后端**: 支持 Abaqus（结构）和 NNW-HyFLOW（CFD），一键切换
+- 📊 **可视化结果**: 自动生成应力云图、位移图、气动力曲线、残差收敛图等
 - 📝 **智能总结**: AI 自动分析仿真结果，用自然语言解释关键数据
 - 💬 **交互对话**: 多轮对话逐步细化仿真需求，智能追问缺失参数
 
@@ -15,7 +18,8 @@ MyAgent 是一个 CLI 智能体，将使用者的自然语言描述转化为 Aba
 
 - **Python**: 3.10+
 - **Conda 环境**: `ccuse`
-- **Abaqus**: 2024（安装在 `C:\SIMULIA\`）
+- **Abaqus**: 2024（安装在 `C:\SIMULIA\`，可选）
+- **NNW-HyFLOW**: 1.1（安装在 `D:\NNW\`，可选）
 - **LLM API**: DeepSeek / GLM / Claude 等 API Key
 
 ## 快速开始
@@ -43,6 +47,10 @@ models:
 abaqus:
   command_path: C:\SIMULIA\Commands\abaqus.bat
   version: 2024
+
+nnw:
+  install_path: D:\NNW\NNW-HyFLOW_V1.1_win64_ed
+  solver: X64/PHengLEIv3d0.exe
 ```
 
 ### 3. 启动
@@ -99,6 +107,13 @@ myagent
 | `apikey set <模型名> <key>` | 设置/更新 API Key | `apikey set deepseek-v4-pro sk-xxx` |
 | `apikey show [模型名]` | 查看 API Key（脱敏） | `apikey show` |
 
+### CAE 后端切换
+| 命令 | 说明 | 示例 |
+|------|------|------|
+| `backend` | 显示当前后端和可用列表 | `backend` |
+| `backend list` | 列出所有可用后端 | `backend list` |
+| `backend <name>` | 切换 CAE 后端 | `backend abaqus` |
+
 ## Web 端
 
 启动 Web 服务：
@@ -107,7 +122,7 @@ myagent
 myagent-web
 ```
 
-浏览器打开 `http://127.0.0.1:8000`，可在网页中对话并下载仿真报告。
+浏览器打开 `http://127.0.0.1:8000`，可在网页中对话、切换 AI 模型和 CAE 后端，并下载仿真报告。
 
 | 参数 | 说明 | 示例 |
 |------|------|------|
@@ -121,6 +136,14 @@ myagent-web
 | `help` | 显示帮助信息 |
 | `clear` | 清空对话上下文 |
 | `exit` / `quit` | 退出 MyAgent |
+
+## CAE 后端扩展
+
+添加新 CAE 后端只需 4 个步骤：
+1. 创建 `myagent/<backend>/` 包，实现 3 个抽象基类
+2. 在 `__init__.py` 中调用 `register_backend()` 注册
+3. 在 `config.yaml` 添加后端配置段
+4. 在 `config.py` 添加对应属性
 
 ## 命令行参数
 
@@ -142,17 +165,27 @@ D:\MyAgent\
 ├── requirements.txt       # 依赖
 ├── config.yaml            # 用户配置
 ├── myagent/               # 核心包
-│   ├── main.py            # CLI 入口
-│   ├── web.py             # Web 入口 (FastAPI)
+│   ├── main.py            # CLI 入口（多 CAE 后端）
+│   ├── web.py             # Web 入口 (FastAPI + 多后端)
 │   ├── static/            # Web 前端
 │   │   ├── index.html     # 左右分栏页面
 │   │   ├── app.js         # 前端逻辑
 │   │   └── style.css      # 样式
-│   ├── config.py          # 配置管理
+│   ├── config.py          # 配置管理（含 CAE 后端选择）
+│   ├── cae/               # CAE 抽象层
+│   │   ├── base.py        # SimulationResult + 3 抽象基类
+│   │   └── factory.py     # 后端注册表 + 工厂函数
 │   ├── llm/               # LLM 抽象层
-│   ├── abaqus/            # Abaqus 操作层
-│   └── presenter.py       # 结果呈现
+│   ├── abaqus/            # Abaqus 操作层（结构 FEA）
+│   ├── nnw/               # NNW-HyFLOW 操作层（CFD）
+│   │   ├── knowledge.py   # NNW 知识库
+│   │   ├── generator.py   # .hypara 文件生成器
+│   │   ├── executor.py    # PHengLEI 求解器执行器
+│   │   └── result.py      # CFD 结果解析器
+│   ├── presenter.py       # 结果呈现
+│   └── report.py          # 可视化报告生成
 ├── output/                 # 仿真输出
+├── docs/                   # 设计文档
 ├── examples/               # 使用示例
 └── tests/                  # 测试
 ```

@@ -2,7 +2,7 @@ default_model: deepseek-v4-pro
 models:
 - name: deepseek-v4-pro
   provider: openai_compat
-  api_key: sk-ac40fb083cca4632af019e10ff71dbb3
+  api_key: ${DEEPSEEK_API_KEY}
   base_url: https://api.deepseek.com
   model_id: deepseek-v4-pro
 - name: deepseek-v4-flash
@@ -52,6 +52,12 @@ abaqus:
   command_path: C:\SIMULIA\Commands\abaqus.bat
   version: 2024
   install_path: C:\SIMULIA\EstProducts\2024
+  work_dir: output
+cae:
+  backend: abaqus
+nnw:
+  install_path: D:\NNW\NNW-HyFLOW_V1.1_win64_ed
+  solver: X64/PHengLEIv3d0.exe
   work_dir: output
 simulation:
   default_material: steel

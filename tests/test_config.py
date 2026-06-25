@@ -134,6 +134,50 @@ def test_get_model_config():
     print(f'✅ test_get_model_config: glm-4 配置获取正常')
 
 
+def test_cae_backend_default():
+    """测试 CAE 后端默认值"""
+    c = Config('config.yaml')
+    assert c.cae_backend == 'abaqus', f"当前默认后端应为 abaqus（config.yaml 配置），实际: {c.cae_backend}"
+    print(f'✅ test_cae_backend_default: 默认后端={c.cae_backend}')
+
+
+def test_set_cae_backend():
+    """测试动态切换 CAE 后端并持久化"""
+    temp_config = tempfile.NamedTemporaryFile(
+        mode='w', suffix='.yaml', delete=False, encoding='utf-8')
+    temp_config.write("""
+default_model: test
+models: []
+cae:
+  backend: abaqus
+""")
+    temp_config.close()
+
+    try:
+        c = Config(temp_config.name)
+        assert c.cae_backend == 'abaqus'
+
+        # 切换到 test_backend
+        c.set_cae_backend('test_backend')
+        assert c.cae_backend == 'test_backend'
+
+        # 从磁盘重新读取验证持久化
+        c2 = Config(temp_config.name)
+        assert c2.cae_backend == 'test_backend', \
+            f"持久化失败，预期 test_backend，实际: {c2.cae_backend}"
+
+        # 切换回 abaqus
+        c2.set_cae_backend('abaqus')
+        assert c2.cae_backend == 'abaqus'
+
+        c3 = Config(temp_config.name)
+        assert c3.cae_backend == 'abaqus'
+
+        print('✅ test_set_cae_backend: 动态切换 + 持久化正常')
+    finally:
+        os.unlink(temp_config.name)
+
+
 if __name__ == '__main__':
     test_config_load()
     test_env_var_resolution()
@@ -142,4 +186,6 @@ if __name__ == '__main__':
     test_simulation_defaults()
     test_model_factory()
     test_get_model_config()
+    test_cae_backend_default()
+    test_set_cae_backend()
     print('\n🎉 全部配置测试通过！')

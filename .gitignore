@@ -1,0 +1,34 @@
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 仿真输出
+output/
+
+# 日志 & 数据库
+*.log
+*.out
+*.db
+
+# 测试 & 缓存
+.pytest_cache/
+
+# 临时脚本
+_*.py
+run_*.py
+
+# IDE / 编辑器
+.vscode/
+.idea/
+
+# 打包产物
+*.zip
+MyAgent-CAE_*/
+
+# 工具目录
+tools/
+wmic_wrapper/
+
+# Conda 环境
+.env/

@@ -5,50 +5,12 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
-class SimulationResult:
-    """仿真结果数据类
-
-    封装一次仿真运行的所有结果数据。
-    """
-
-    def __init__(self, job_dir: str):
-        """初始化
-
-        Args:
-            job_dir: 仿真作业输出目录
-        """
-        self.job_dir = Path(job_dir)
-        self.success = False
-        self.results_json: Dict[str, Any] = {}
-        self.images: List[str] = []
-        self.raw_data: Dict[str, Any] = {}
-        self.paths_data: Dict[str, Any] = {}
-        self.error: Optional[str] = None
-
-    @property
-    def summary(self) -> Dict[str, Any]:
-        """获取结果摘要"""
-        return self.results_json.get("summary", {})
-
-    @property
-    def max_stress(self) -> Optional[float]:
-        """获取最大 von Mises 应力"""
-        return self.summary.get("max_stress_mises")
-
-    @property
-    def max_displacement(self) -> Optional[float]:
-        """获取最大位移"""
-        return self.summary.get("max_displacement")
-
-    @property
-    def image_paths(self) -> List[str]:
-        """获取所有结果图片的绝对路径"""
-        return [str(self.job_dir / img) for img in self.images]
+# SimulationResult 已迁移到 CAE 抽象层，此处重导出以保持向后兼容
+from myagent.cae.base import SimulationResult, AbstractResultReader
 
 
-class ResultReader:
-    """仿真结果读取器
+class ResultReader(AbstractResultReader):
+    """Abaqus 仿真结果读取器
 
     读取 Abaqus 仿真完成后生成的 results.json 和图片文件。
     """
@@ -169,45 +131,3 @@ class ResultReader:
 
         return "; ".join(parts)
 
-    @staticmethod
-    def get_text_summary(result: SimulationResult) -> str:
-        """生成结果的文本摘要
-
-        Args:
-            result: 仿真结果对象
-
-        Returns:
-            文本摘要
-        """
-        if not result.success:
-            return f"仿真结果读取失败: {result.error}"
-
-        summary = result.summary
-        lines = []
-
-        if "max_stress_mises" in summary:
-            lines.append(f"  - 最大 von Mises 应力: {summary['max_stress_mises']:.2f} MPa")
-        if "max_displacement" in summary:
-            lines.append(f"  - 最大位移: {summary['max_displacement']:.2f} mm")
-        if "max_principal_stress" in summary:
-            lines.append(f"  - 最大主应力: {summary['max_principal_stress']:.2f} MPa")
-        if "min_principal_stress" in summary:
-            lines.append(f"  - 最小主应力: {summary['min_principal_stress']:.2f} MPa")
-        if "total_force" in summary:
-            lines.append(f"  - 总反力: {summary['total_force']:.2f} N")
-        if "safety_factor" in summary:
-            sf = summary['safety_factor']
-            lines.append(f"  - 安全系数: {sf:.2f}")
-
-        if "additional" in summary:
-            for key, value in summary["additional"].items():
-                lines.append(f"  - {key}: {value}")
-
-        if not lines:
-            lines.append("  (结果数据暂无)")
-
-        lines.append(f"\n  [img] 结果图片: {len(result.images)} 张")
-        for img in result.images:
-            lines.append(f"     - {img}")
-
-        return "\n".join(lines)

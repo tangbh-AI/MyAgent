@@ -5,6 +5,7 @@ let pollingTimer = null;
 // ——— 初始化 ———
 
 document.addEventListener('DOMContentLoaded', () => {
+    loadBackends();
     loadModels();
     refreshTasks();
     document.getElementById('chat-input').addEventListener('keydown', (e) => {
@@ -29,6 +30,21 @@ async function loadModels() {
     }
 }
 
+// ——— 后端列表 ———
+
+async function loadBackends() {
+    try {
+        const resp = await fetch('/api/backends');
+        const backends = await resp.json();
+        const select = document.getElementById('backend-select');
+        select.innerHTML = backends.map(b =>
+            `<option value="${b.name}" ${b.current ? 'selected' : ''}>${b.display_name}</option>`
+        ).join('');
+    } catch (e) {
+        console.error('加载后端列表失败:', e);
+    }
+}
+
 // ——— 发送消息 ———
 
 async function sendMessage() {
@@ -45,10 +61,11 @@ async function sendMessage() {
 
     try {
         const model = document.getElementById('model-select').value;
+        const backend = document.getElementById('backend-select').value;
         const resp = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, model }),
+            body: JSON.stringify({ message, model, backend }),
         });
 
         if (!resp.ok) {

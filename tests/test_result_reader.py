@@ -126,7 +126,7 @@ def test_text_summary_success():
     }
     r.images = ["stress.png", "disp.png"]
 
-    text = ResultReader.get_text_summary(r)
+    text = r.get_text_summary()
     assert '310.50' in text
     assert '4.20' in text
     assert '0.81' in text
@@ -143,7 +143,7 @@ def test_text_summary_failure():
     r.success = False
     r.error = "未找到 results.json; 无 ODB"
 
-    text = ResultReader.get_text_summary(r)
+    text = r.get_text_summary()
     assert '失败' in text
     assert '未找到 results.json' in text
     print(f'✅ test_text_summary_failure: 正确显示失败信息')
@@ -156,7 +156,7 @@ def test_text_summary_empty():
     r.results_json = {"summary": {}, "images": []}
     r.images = []
 
-    text = ResultReader.get_text_summary(r)
+    text = r.get_text_summary()
     assert '暂无' in text
     print(f'✅ test_text_summary_empty: 正确显示空数据提示')
 
