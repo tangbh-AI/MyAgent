@@ -26,6 +26,7 @@ from myagent.report import ReportGenerator
 # 确保所有 CAE 后端在启动时注册
 import myagent.abaqus  # noqa: F401 — 注册 Abaqus 后端
 import myagent.nnw     # noqa: F401 — 注册 NNW-HyFLOW 后端
+import myagent.fealpy  # noqa: F401 — 注册 fealpy 后端
 
 
 # ——— TaskManager ———

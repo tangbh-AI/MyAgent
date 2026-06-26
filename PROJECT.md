@@ -5,7 +5,7 @@
 - **项目名称**: MyAgent — 多 CAE 后端自然语言智能助手
 - **项目路径**: `D:\MyAgent`
 - **版本**: 0.1.0
-- **CAE 后端**: Abaqus 2024（结构 FEA）+ NNW-HyFLOW 1.1（CFD）
+- **CAE 后端**: fealpy 3.4.0（主推 FEA）+ Abaqus 2024（结构 FEA）+ NNW-HyFLOW 1.1（CFD）
 
 ## 运行环境
 
@@ -20,6 +20,7 @@
 
 | 依赖 | 版本 | 路径 | 必需 |
 |------|------|------|------|
+| fealpy | 3.4.0 | pip (conda ccuse) | 可选 |
 | Abaqus | 2024 | `C:\SIMULIA\EstProducts\2024\` | 可选 |
 | Abaqus 命令 | 2024 | `C:\SIMULIA\Commands\abaqus.bat` | 可选 |
 | NNW-HyFLOW | 1.1 | `D:\NNW\NNW-HyFLOW_V1.1_win64_ed` | 可选 |
@@ -52,6 +53,11 @@ D:\MyAgent\
 │   │   ├── openai_compat.py # OpenAI 兼容接口
 │   │   ├── anthropic_llm.py # Anthropic 接口
 │   │   └── factory.py     # 模型工厂
+│   ├── fealpy/            # 🆕 fealpy 操作层（主推 FEA 后端）
+│   │   ├── knowledge.py   # 🆕 fealpy API 知识库
+│   │   ├── generator.py   # 🆕 脚本生成器
+│   │   ├── executor.py    # 🆕 Python 子进程执行器
+│   │   └── result.py      # 🆕 结果读取器
 │   ├── abaqus/            # Abaqus 操作层（结构 FEA）
 │   │   ├── generator.py   # ScriptGenerator (.py 脚本)
 │   │   ├── executor.py    # AbaqusExecutor (abaqus.bat)

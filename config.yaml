@@ -54,11 +54,15 @@ abaqus:
   install_path: C:\SIMULIA\EstProducts\2024
   work_dir: output
 cae:
-  backend: abaqus
+  backend: fealpy
 nnw:
   install_path: D:\NNW\NNW-HyFLOW_V1.1_win64_ed
   solver: X64/PHengLEIv3d0.exe
   work_dir: output
+fealpy:
+  python_path: ''
+  work_dir: output
+  timeout: 3600
 simulation:
   default_material: steel
   default_units: mm_N_s

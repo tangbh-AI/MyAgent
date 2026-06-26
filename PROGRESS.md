@@ -1,6 +1,6 @@
 # MyAgent 开发进度
 
-## 当前状态: 🔄 Phase 7 进行中 — fealpy CAE 后端接入
+## 当前状态: ✅ Phase 7 已完成 — fealpy CAE 后端接入
 
 ### 整体进度
 
@@ -12,32 +12,52 @@
 | Phase 4: Web 端 | ✅ 已完成 | 2026-06-24 | 2026-06-24 |
 | Phase 5: 多 CAE 后端 | ✅ 已完成 | 2026-06-24 | 2026-06-24 |
 | Phase 6: NNW 后端 | ✅ 已完成 | 2026-06-25 | 2026-06-25 |
-| Phase 7: fealpy 后端 | 🔄 进行中 | 2026-06-25 | — |
+| Phase 7: fealpy 后端 | ✅ 已完成 | 2026-06-25 | 2026-06-25 |
 
 ---
 
 ### 最新更新 (2026-06-25)
 
-**🔄 Phase 7 进行中 — fealpy CAE 后端接入**：
+**✅ 端到端验收完成 — 2 个案例全部通过**：
+- ✅ 简单案例: 悬臂梁静力+模态 (`output/e2e_demo/`)
+- ✅ 复杂案例: 两端固支梁 + 均布压力 + 模态 (`output/e2e_clamped_beam/`)
+- ✅ 111 → 112 测试全部通过，零回归
+- 🐛 修复 3 个 bug: knowledge.py 模态 API + report.py 字符串拼接
+
+**✅ Phase 7 完成 — fealpy CAE 后端接入**：
 - ✅ fealpy 3.4.0 已在 conda ccuse 下安装
-- ✅ API 探索完成（见下方关键发现）
-- ✅ 设计文档: `docs/superpowers/specs/2026-06-25-fealpy-backend-design.md`
-- ✅ 实现计划: `docs/superpowers/plans/2026-06-25-fealpy-backend.md`
-- ⬜ 待创建: `myagent/fealpy/` 包（knowledge / generator / executor / result / __init__）
-- ⬜ 待修改: config.yaml / config.py / report.py
-- ⬜ 待编写: tests/test_fealpy.py (20 测试)
-- ⬜ 待验收: 端到端自然语言算例
+- ✅ API 探索完成（`add_integrator()` 非 `add_domain_integrator`、`assembly().to_scipy()`、手动 BC）
+- ✅ 创建 `myagent/fealpy/` 包（5 个文件）：knowledge / generator / executor / result / __init__
+- ✅ knowledge.py: 材料库、单位制、API 参考、结果保存代码、system prompt
+- ✅ generator.py: LLM 脚本生成器（完全复刻 Abaqus 模式）
+- ✅ executor.py: Python 子进程执行器（预执行语法验证）
+- ✅ result.py: 结果读取器（results.json + PNG + 诊断）
+- ✅ 修改 config.yaml + config.py: 新增 fealpy 配置段 + 3 个属性
+- ✅ 修改 report.py: 新增模态分析 section（固有频率表 + 振型图）
+- ✅ 修改 main.py + web.py: 导入 fealpy 后端注册
+- ✅ 编写 tests/test_fealpy.py（26 个测试）
+- ✅ 110 个测试全部通过，零回归
+- ✅ **端到端验收完成**: 自然语言悬臂梁算例（静力+模态）→ 报告含模态 section
 
-#### fealpy API 关键发现 (fealpy 3.4.0)
+**🆕 fealpy CAE 后端接入**：
+- 新增 `myagent/fealpy/` 包（5 个文件）：knowledge / generator / executor / result / __init__
+- 实现 3 个抽象基类：ScriptGenerator（LLM 生成 Python 脚本）、FealpyExecutor（subprocess 执行）、ResultReader（读取 results.json）
+- 注册为 CAE 后端 `fealpy`，支持 CLI `backend fealpy` 和 Web 端切换
+- 支持线弹性静力分析 + 模态分析（前 6 阶固有频率 + 振型）
+- 使用 mm-N-s 单位制（与 Abaqus 一致）
+- API 关键发现：`add_integrator()` / `assembly().to_scipy()` / 手动 BC（因 DirichletBC bug）
+- report.py 新增 `_build_modal_section()`：固有频率表格 + 振型云图
+- config.yaml 新增 `fealpy:` 配置段，config.py 新增 3 个属性
+- 新增 `tests/test_fealpy.py`（26 个测试全部通过）
+- 🆕 新增 `tests/test_fealpy_e2e.py`（端到端集成测试，含模态 section 验证）
+- 🆕 输出样例报告: `output/e2e_demo/analysis_report.html`（783KB，含位移/应力云图 + 6 阶振型图）
+- 111 个测试通过，零回归
 
-已验证:
-- `TetrahedronMesh.from_box(box, nx, ny, nz)` — 网格生成 ✅
-- `LagrangeFESpace(mesh, p=1, ctype='C')` + `TensorFunctionSpace(space, shape=(-1, 3))` ✅
-- `LinearElasticMaterial(name, elastic_modulus=E, poisson_ratio=nu)` — 材料 ✅
-- `LinearElasticityIntegrator(material)` + `BilinearForm.add_integrator().assembly()` — 刚度矩阵 ✅
-- `DirichletBC` (tensor space) ⚠️ 有 bug: `gd` tuple 报 Unknown type，`gd=scalar + threshold=tuple` 有变量名错误
-
-BC 备用方案：knowledge.py 中将引导 LLM 手动修改矩阵行/列实现 Dirichlet BC。
+**🆕 端到端验收 & 修复**（2026-06-25）：
+- ✅ 端到端测试通过: NL → 脚本 → fealpy 执行 → result reader → HTML 报告（含模态 section）
+- 🐛 修复 knowledge.py 模态 API 指导: `sigma=0.0, which='LM'` → `which='SM'`（ARPACK 在 sigma=0.0 时不收敛）
+- 🐛 修复 knowledge.py 模态规则: 新增过滤近零伪模态逻辑（n_modes+10 请求 → 过滤 f<0.01Hz）
+- 🐛 修复 report.py `_build_modal_section()` 字符串拼接 bug（`+ '' +` TypeError）
 
 **🆕 NNW 可视化报告样式对齐**：
 - `report.py` 重构：CFD/FEA 双模式自动检测，CFD 深蓝主题 (`#1a3a4a→#2980b9`)
@@ -162,6 +182,12 @@ D:\MyAgent\
 │   │   ├── openai_compat.py ✅ OpenAI 兼容接口
 │   │   ├── anthropic_llm.py ✅ Anthropic 接口（支持自定义base_url）
 │   │   └── factory.py      ✅ 模型工厂
+│   ├── fealpy/               🆕 fealpy FEA 后端（主推）
+│   │   ├── __init__.py     🆕 注册 fealpy 后端
+│   │   ├── knowledge.py    🆕 fealpy API 知识库
+│   │   ├── generator.py    🆕 ScriptGenerator
+│   │   ├── executor.py     🆕 FealpyExecutor (subprocess)
+│   │   └── result.py       🆕 ResultReader
 │   ├── abaqus/
 │   │   ├── __init__.py     ✅ 注册 Abaqus 后端
 │   │   ├── generator.py    ✅ ScriptGenerator
@@ -189,7 +215,10 @@ D:\MyAgent\
     ├── test_result_reader.py ✅ 结果读取测试
     ├── test_cae_factory.py ✅ CAE 工厂测试
     ├── test_web.py         ✅ Web 模块测试
-    └── test_nnw.py         🆕 NNW 后端测试 (14 个)
+    ├── test_nnw.py         ✅ NNW 后端测试 (14 个)
+    ├── test_fealpy.py      🆕 fealpy 后端测试 (26 个)
+    ├── test_fealpy_e2e.py 🆕 简单案例端到端 (1 个)
+    └── test_fealpy_complex.py 🆕 复杂案例端到端 (1 个)
 ```
 
 ### 用户使用前需配置
@@ -214,6 +243,8 @@ D:\MyAgent\
 
 | 日期 | 变更内容 |
 |------|----------|
+| 2026-06-25 | 🆕 端到端验收完成：悬臂梁静力+模态全流程，报告含模态 section；修复 3 个 bug，111 测试零回归 |
+| 2026-06-25 | 🆕 fealpy CAE 后端接入：myagent/fealpy/ (5 文件), 工厂注册, config 扩展, 26 测试通过, 110 零回归 |
 | 2026-06-25 | 🆕 NNW Demo 转化：6 个官方案例的自然语言描述 → examples/nnw/demo_cases_nl.md |
 | 2026-06-25 | 🆕 NNW-HyFLOW CFD 后端接入：myagent/nnw/ (5 文件), 工厂注册, config 扩展, 14 测试通过 |
 | 2026-06-25 | 🗑️ 移除 PKPM-CAE 后端及相关代码、测试、文档 |

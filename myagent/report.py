@@ -92,12 +92,14 @@ class ReportGenerator:
         self._detect_result_type()
 
     def _detect_result_type(self):
-        """自动检测结果类型：CFD（有升力/阻力系数）或 FEA（有应力/位移）"""
+        """自动检测结果类型：CFD（有升力/阻力系数）或 FEA（有应力/位移/模态）"""
         summary = self.results.get('summary', {})
         if "cl" in summary or "cd" in summary:
             self.result_type = "cfd"
         elif "max_stress_mises" in summary or "max_displacement" in summary:
             self.result_type = "fea"
+        elif "natural_frequencies" in summary:
+            self.result_type = "fea"  # 模态分析也用 FEA 主题
         else:
             # 默认保持 FEA（向后兼容）
             self.result_type = "fea"
@@ -252,6 +254,7 @@ class ReportGenerator:
 
         cards = self._build_fea_cards_html(summary)
         contour_section = self._build_contour_section()
+        modal_section = self._build_modal_section()
         chart_section = self._build_chart_section()
 
         return f"""<!DOCTYPE html>
@@ -275,6 +278,8 @@ class ReportGenerator:
 {cards}
 
 {contour_section}
+
+{modal_section}
 
 {chart_section}
 </div>
@@ -790,6 +795,57 @@ tr:hover { background: #f8f9fa; }
             '<h2>结果云图</h2>'
             f'<div class="contour-grid">{"".join(items)}</div>'
             '</div>'
+        )
+
+    def _build_modal_section(self) -> str:
+        """构建模态分析 section — 固有频率表格 + 振型图"""
+        summary = self.results.get('summary', {})
+        frequencies = summary.get('natural_frequencies')
+
+        if not frequencies:
+            return ''
+
+        # 固有频率表格
+        freq_rows = []
+        for i, freq in enumerate(frequencies):
+            freq_rows.append(
+                f'<tr><td>{i+1}</td><td>{freq:.2f}</td></tr>'
+            )
+
+        freq_table = (
+            '<table style="width:100%;border-collapse:collapse;text-align:center;">'
+            '<tr style="background:#f0f4f8;"><th>阶次</th><th>固有频率 (Hz)</th></tr>'
+            + ''.join(freq_rows) +
+            '</table>'
+        )
+
+        # 振型图
+        mode_images_html = ''
+        mode_shapes = self.results.get('mode_shapes', [])
+        if mode_shapes:
+            items = []
+            for img_name in mode_shapes:
+                if img_name in self.images_b64:
+                    b64 = self.images_b64[img_name]
+                    label = img_name.replace('_', ' ').replace('.png', '')
+                    items.append(
+                        f'<div class="contour-item">'
+                        f'<img src="data:image/png;base64,{b64}" alt="{label}">'
+                        f'<p>{label}</p>'
+                        f'</div>'
+                    )
+            if items:
+                mode_images_html = (
+                    '<h3 style="margin-top:20px;">振型图</h3>'
+                    f'<div class="contour-grid">{"".join(items)}</div>'
+                )
+
+        return (
+            '<div class="section">'
+            '<h2>模态分析</h2>'
+            + freq_table
+            + mode_images_html
+            + '</div>'
         )
 
     def _build_chart_section(self) -> str:

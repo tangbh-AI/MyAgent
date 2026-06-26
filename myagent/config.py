@@ -171,6 +171,35 @@ class Config:
             return str(Path(install) / "bin" / solver)
         return solver
 
+    # ——— fealpy 配置 ———
+
+    @property
+    def fealpy_config(self) -> Dict[str, Any]:
+        """获取 fealpy 配置"""
+        return self._config.get("fealpy", {})
+
+    @property
+    def fealpy_python_path(self) -> str:
+        """获取 fealpy 使用的 Python 路径
+
+        空字符串 = 自动检测当前环境的 Python (sys.executable)
+        """
+        val = self.fealpy_config.get("python_path", "")
+        if not val:
+            import sys
+            return sys.executable
+        return val
+
+    @property
+    def fealpy_work_dir(self) -> str:
+        """获取 fealpy 输出目录"""
+        return self.fealpy_config.get("work_dir", "output")
+
+    @property
+    def fealpy_timeout(self) -> int:
+        """获取 fealpy 仿真超时时间（秒）"""
+        return self.fealpy_config.get("timeout", 3600)
+
     @property
     def simulation_config(self) -> Dict[str, Any]:
         """获取仿真默认设置"""

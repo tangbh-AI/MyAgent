@@ -3,14 +3,15 @@
 MyAgent 是一个 CLI 智能体，将使用者的自然语言描述转化为 CAE 仿真操作，
 自动执行仿真并将结果以图片和自然语言描述的方式呈现给使用者。
 
-支持多种 CAE 后端：**Abaqus**（结构有限元分析）、**NNW-HyFLOW**（计算流体力学 CFD）。
+支持多种 CAE 后端：**fealpy**（主推 FEA 后端，纯 Python）、**Abaqus**（结构有限元分析）、**NNW-HyFLOW**（计算流体力学 CFD）。
 
 ## 功能特性
 
 - 🗣️ **自然语言交互**: 用日常语言描述仿真需求，无需记忆 CAE 命令
 - 🤖 **多模型支持**: 支持 DeepSeek、GLM、Claude 等多种 AI 模型，可随时切换
-- 🔄 **多 CAE 后端**: 支持 Abaqus（结构）和 NNW-HyFLOW（CFD），一键切换
-- 📊 **可视化结果**: 自动生成应力云图、位移图、气动力曲线、残差收敛图等
+- 🔄 **多 CAE 后端**: 支持 fealpy（纯 Python FEA）、Abaqus（结构 FEA）、NNW-HyFLOW（CFD），一键切换
+- 🔬 **模态分析**: fealpy 后端支持静力 + 模态分析，报告含固有频率表 + 振型图
+- 📊 **可视化报告**: 自动生成 HTML 报告，含应力/位移/振型云图、频率表、曲线图等
 - 📝 **智能总结**: AI 自动分析仿真结果，用自然语言解释关键数据
 - 💬 **交互对话**: 多轮对话逐步细化仿真需求，智能追问缺失参数
 
@@ -18,6 +19,7 @@ MyAgent 是一个 CLI 智能体，将使用者的自然语言描述转化为 CAE
 
 - **Python**: 3.10+
 - **Conda 环境**: `ccuse`
+- **fealpy**: 3.4.0（纯 Python FEA，pip 安装，必需）
 - **Abaqus**: 2024（安装在 `C:\SIMULIA\`，可选）
 - **NNW-HyFLOW**: 1.1（安装在 `D:\NNW\`，可选）
 - **LLM API**: DeepSeek / GLM / Claude 等 API Key
@@ -176,6 +178,11 @@ D:\MyAgent\
 │   │   ├── base.py        # SimulationResult + 3 抽象基类
 │   │   └── factory.py     # 后端注册表 + 工厂函数
 │   ├── llm/               # LLM 抽象层
+│   ├── fealpy/            # 🆕 fealpy 操作层（主推 FEA 后端）
+│   │   ├── knowledge.py   # 🆕 fealpy API 知识库
+│   │   ├── generator.py   # 🆕 脚本生成器
+│   │   ├── executor.py    # 🆕 Python 子进程执行器
+│   │   └── result.py      # 🆕 结果读取器
 │   ├── abaqus/            # Abaqus 操作层（结构 FEA）
 │   ├── nnw/               # NNW-HyFLOW 操作层（CFD）
 │   │   ├── knowledge.py   # NNW 知识库
@@ -185,9 +192,10 @@ D:\MyAgent\
 │   ├── presenter.py       # 结果呈现
 │   └── report.py          # 可视化报告生成
 ├── output/                 # 仿真输出
+│   └── e2e_demo/           # 🆕 端到端样例报告（含模态 section）
 ├── docs/                   # 设计文档
 ├── examples/               # 使用示例
-└── tests/                  # 测试
+└── tests/                  # 测试 (111 个全部通过)
 ```
 
 ## 开发说明
